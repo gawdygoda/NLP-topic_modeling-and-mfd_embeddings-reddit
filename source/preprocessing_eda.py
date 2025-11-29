@@ -45,6 +45,9 @@ print(raw_data.duplicated().sum())
 dup_all = raw_data[raw_data.duplicated(keep=False)]
 print(dup_all)
 print("====================================")
+print("Unique values in 'resolved_verdicts':")
+print(raw_data['resolved_verdict'].unique())
+print("====================================")
 
 # ------------------------------
 # End Time

@@ -1,3 +1,4 @@
 data/*
 !data/mfd2.0.dic
 !.keep
+**/.DS_Store
