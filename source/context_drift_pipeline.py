@@ -25,15 +25,16 @@ RESULTS_DIR = "../results"
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+USE_SINGLE_GPU = True # note using multi GPU on Arc is slower by 4x
 DATA_FILE = f"{DATA_DIR}/aita_filtered.pkl"
 MFD_FILE = f"{DATA_DIR}/mfd2.0.dic"
 
-#MODEL_NAME = "roberta-base"
-MODEL_NAME = "microsoft/mpnet-base"
+#MODEL_NAME = "roberta-base" # 15min on H200
+MODEL_NAME = "microsoft/mpnet-base" # 20min on H200
 # MODEL_NAME = "sentence-transformers/all-mpnet-base-v2"
-USE_SINGLE_GPU = True # note using multi GPU on Arc is slower by 4x
-HEATMAP_OUTFILE_YA = f'{RESULTS_DIR}/heatmap_mfd_YA_{MODEL_NAME}.png'
-HEATMAP_OUTFILE_NA = f'{RESULTS_DIR}/heatmap_mfd_NA_{MODEL_NAME}.png'
+MODEL_NAME_SAFE = MODEL_NAME.replace("/", "-")
+HEATMAP_OUTFILE_YA = f'{RESULTS_DIR}/heatmap_mfd_YA_{MODEL_NAME_SAFE}.png'
+HEATMAP_OUTFILE_NA = f'{RESULTS_DIR}/heatmap_mfd_NA_{MODEL_NAME_SAFE}.png'
 
 
 # ------------------------------
