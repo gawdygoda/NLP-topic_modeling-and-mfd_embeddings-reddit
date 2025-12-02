@@ -1,0 +1,1 @@
+(stub for HA's code)
