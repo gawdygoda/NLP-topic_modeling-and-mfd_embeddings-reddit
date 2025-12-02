@@ -1,1 +1,1 @@
-(stub for HA's code)
+print ("stub for HA's code")
