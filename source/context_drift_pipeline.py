@@ -17,6 +17,11 @@ import os
 #Only needed temp
 import random
 
+#BERTopic Stuff
+from bertopic import BERTopic
+from hdbscan import HDBSCAN
+from sentence_transformers import SentenceTransformer
+
 # ------------------------------
 # Config
 # ------------------------------
@@ -32,7 +37,11 @@ MFD_FILE = f"{DATA_DIR}/mfd2.0.dic"
 #MODEL_NAME = "roberta-base" # 15min on H200
 MODEL_NAME = "microsoft/mpnet-base" # 20min on H200
 # MODEL_NAME = "sentence-transformers/all-mpnet-base-v2"
+# MODEL_NAME = "allenai/longformer-base-4096"
 MODEL_NAME_SAFE = MODEL_NAME.replace("/", "-")
+MAX_LEN = 512       # 512 for roberta,mpnet, 4096 for longformer
+STRIDE = 128         # 128 for roberta,mpnet, 512 for longformer
+
 HEATMAP_OUTFILE_YA = f'{RESULTS_DIR}/heatmap_mfd_YA_{MODEL_NAME_SAFE}.png'
 HEATMAP_OUTFILE_NA = f'{RESULTS_DIR}/heatmap_mfd_NA_{MODEL_NAME_SAFE}.png'
 
@@ -133,8 +142,8 @@ def process_post_chunks(post_text, tokenizer, model, mfd_dict):
                         return_tensors="pt", 
                         padding=True, 
                         truncation=True, 
-                        max_length=512, 
-                        stride=128,
+                        max_length=MAX_LEN, 
+                        stride=STRIDE,
                         return_overflowing_tokens=True, 
                         return_offsets_mapping=True
     )
@@ -205,7 +214,7 @@ def generate_heatmap(results_list, title_suffix, filename):
     sns.heatmap(pivot_matrix, annot=True, cmap="bwr", fmt=".2f", center=0)
     plt.title(f"Semantic Shift: {title_suffix}")
     plt.xlabel("Moral Foundation")
-    plt.ylabel("Topic ID")
+    plt.ylabel("Topic Pair")
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved {filename}")
@@ -226,7 +235,7 @@ mfd_dict = load_mfd_from_dic(MFD_FILE)
 raw_data = pd.read_pickle(DATA_FILE)
 print(f'Read in {raw_data.shape[0]} posts')
 
-topics = [random.randint(0, 44) for _ in range(raw_data.shape[0])]
+# topics = [random.randint(0, 44) for _ in range(raw_data.shape[0])]
 
 # subset = 100
 # raw_data = raw_data.iloc[:subset]
@@ -247,6 +256,32 @@ topics = [random.randint(0, 44) for _ in range(raw_data.shape[0])]
 # ]
 # # Assign Topic IDs (0 to 9)
 # topics = list(range(10))
+
+# To load later instead of retraining:
+# topic_model = BERTopic.load(f"{DATA_DIR}/my_bertopic_model")
+# topics = topic_model.topics_
+
+topics_csv = pd.read_csv(f"{DATA_DIR}/aita_with_topics.csv")
+print("The Topics looks like:")
+print(topics_csv.head())
+print(topics_csv.shape)
+print(topics_csv.info())
+print(topics_csv['topic_pair'].value_counts())
+print(topics_csv['topic_pair'].value_counts().head(20))
+print(topics_csv.apply(pd.Series.nunique))
+
+
+# 1. Create a mapping of {String -> Integer ID}
+# We sort strictly by frequency so ID 0 is the biggest topic, ID 1 is the second, etc.
+# This makes "Top 20" logic incredibly easy later (just filter ID < 20).
+pair_counts = topics_csv['topic_pair'].value_counts()
+unique_pairs = pair_counts.index.tolist()
+
+# Create dictionary: {'[3,13]': 0, '[5,2]': 1, ...}
+pair_to_id = {pair: i for i, pair in enumerate(unique_pairs)}
+topics_csv['topic_pair_id'] = topics_csv['topic_pair'].map(pair_to_id)
+topics = topics_csv['topic_pair_id']
+
 
 # ------------------------------
 # Load model & tokenizer
@@ -332,10 +367,14 @@ for word, vectors in tqdm(global_registry.items(), desc="Processing global basel
 # Loop throgh all the MFD words in a topic and get 
 # the cossim from that same word from the whole 100k
 # docs.
+id_to_pair = {v: k for k, v in pair_to_id.items()}
 results_ya = []
 results_na = []
 
 for topic_id, words_in_topic in tqdm(topic_registry.items(), desc="Calcualting shift per topic"):
+    #Skip noise and only plot the top 20 topics
+    if topic_id == -1 or topic_id > 20: 
+        continue
     for word, data_list in words_in_topic.items():
 
         # data_list contains tuples: [(vec, pid, 'YA'), (vec, pid, 'NA'), ...]
@@ -343,13 +382,14 @@ for topic_id, words_in_topic in tqdm(topic_registry.items(), desc="Calcualting s
         vectors_na = [item[0] for item in data_list if item[2] == 'NA']
 
         global_vec = global_centroids[word].reshape(1, -1) # get the global average of that word accross the corpus
+        topic_pair_name = id_to_pair[topic_id]
 
         if vectors_ya:
             topic_vec_ya = np.mean(vectors_ya, axis=0).reshape(1, -1)
             dist_ya = 1 - cosine_similarity(topic_vec_ya, global_vec)[0][0]
             
             results_ya.append({
-                'topic_id': topic_id,
+                'topic_id': topic_pair_name,
                 'word': word,
                 'foundation': mfd_dict.get(word, "Unknown"),
                 'shift_dist': dist_ya,
@@ -361,7 +401,7 @@ for topic_id, words_in_topic in tqdm(topic_registry.items(), desc="Calcualting s
             dist_na = 1 - cosine_similarity(topic_vec_na, global_vec)[0][0]
             
             results_na.append({
-                'topic_id': topic_id,
+                'topic_id': topic_pair_name,
                 'word': word,
                 'foundation': mfd_dict.get(word, "Unknown"),
                 'shift_dist': dist_na,
@@ -369,12 +409,26 @@ for topic_id, words_in_topic in tqdm(topic_registry.items(), desc="Calcualting s
             })
 
 
+# ------------------------------
+# 5a. Save Results to Disk
+# ------------------------------
+print("Saving results to CSV...")
+
+# Convert lists of dicts to DataFrames
+df_ya = pd.DataFrame(results_ya)
+df_na = pd.DataFrame(results_na)
+
+# Save to CSV (Index=False so we don't save the row numbers)
+df_ya.to_csv(f"{DATA_DIR}/semantic_shift_results_YA_{MODEL_NAME_SAFE}.csv", index=False)
+df_na.to_csv(f"{DATA_DIR}/semantic_shift_results_NA_{MODEL_NAME_SAFE}.csv", index=False)
+
+print(f"Saved semantic shift results to {DATA_DIR}")
 
 # ------------------------------
-# 5. Report: Foundation Shifts per Topic
+# 5b. Report: Foundation Shifts per Topic
 # ------------------------------
-generate_heatmap(results_ya, "You're the Asshole (YA)", HEATMAP_OUTFILE_YA)
-generate_heatmap(results_na, "Not the Asshole (NA)", HEATMAP_OUTFILE_NA)
+generate_heatmap(results_ya, "You're the A (YA)", HEATMAP_OUTFILE_YA)
+generate_heatmap(results_na, "Not the A (NA)", HEATMAP_OUTFILE_NA)
 
 
 # ------------------------------

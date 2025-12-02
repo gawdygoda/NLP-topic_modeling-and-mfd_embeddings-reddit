@@ -129,14 +129,28 @@ projection = {
     "resolved_verdict": 1,
 }
 
-docs = list(subs.find(filter_criteria, projection))
+# docs = list(subs.find(filter_criteria, projection))
 
-df = pd.DataFrame(docs)
+# df = pd.DataFrame(docs)
 
-# Save DataFrame to pickle
-df.to_pickle(DATA_FILE)
+# # Save DataFrame to pickle
+# df.to_pickle(DATA_FILE)
 
 #print(subs.find_one())
 
 
-
+# Total Posts: 148691
+# Max num_words:
+#  [{'_id': None, 'max_num_words': 6729}]
+# Max num_tokens:
+#  [{'_id': None, 'max_num_words': 6729}]
+# Number of posts with more than 512 words: 38125
+# Number of documents with no resolved_verdict: 0
+# resolved_verdict:
+# {'_id': '', 'count': 920}
+# {'_id': 'YTA', 'count': 31959}
+# {'_id': 'NTA', 'count': 83535}
+# {'_id': 'INFO', 'count': 4224}
+# {'_id': 'ESH', 'count': 9359}
+# {'_id': 'NAH', 'count': 18694}
+# Number of documents matching filter: 108634
