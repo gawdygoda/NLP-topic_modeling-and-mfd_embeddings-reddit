@@ -13,6 +13,7 @@ import time
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+import spacy
 
 #Only needed temp
 import random
@@ -34,8 +35,8 @@ USE_SINGLE_GPU = True # note using multi GPU on Arc is slower by 4x
 DATA_FILE = f"{DATA_DIR}/aita_filtered.pkl"
 MFD_FILE = f"{DATA_DIR}/mfd2.0.dic"
 
-#MODEL_NAME = "roberta-base" # 15min on H200
-MODEL_NAME = "microsoft/mpnet-base" # 20min on H200
+MODEL_NAME = "roberta-base" # 15min on H200
+# MODEL_NAME = "microsoft/mpnet-base" # 20min on H200, 60 min w NER
 # MODEL_NAME = "sentence-transformers/all-mpnet-base-v2"
 # MODEL_NAME = "allenai/longformer-base-4096"
 MODEL_NAME_SAFE = MODEL_NAME.replace("/", "-")
@@ -49,6 +50,23 @@ HEATMAP_OUTFILE_NA = f'{RESULTS_DIR}/heatmap_mfd_NA_{MODEL_NAME_SAFE}.png'
 # ------------------------------
 # Definitions
 # ------------------------------
+
+def get_forbidden_indices(text):
+    """
+    Returns a set of character indices that belong to Named Entities.
+    """
+    doc = nlp(text)
+    forbidden_indices = set()
+    
+    for ent in doc.ents:
+        # We generally want to ignore Organizations, Countries, People, etc.
+        # labels: ORG (Saints), GPE (United States), PERSON (Jesus), etc.
+        if ent.label_ in ["ORG", "GPE", "PERSON", "FAC", "LOC", "DATE", "EVENT"]:
+            # Mark every character index in this entity as "forbidden"
+            for i in range(ent.start_char, ent.end_char):
+                forbidden_indices.add(i)
+                
+    return forbidden_indices
 
 def load_mfd_from_dic(filepath):
     """
@@ -127,9 +145,20 @@ def process_post_chunks(post_text, tokenizer, model, mfd_dict):
     # checks if this word is also in the MFG dic, if so
     #    appends it to a "word_matches" list that keeps the word, 
     #    the start/end indexes, the foundation and type = mdf
+
+    # ignore named entities
+    forbidden_map = get_forbidden_indices(post_text)
+
     word_matches = []
     for match in re.finditer(r'\b\w+\b', post_text):
         word = match.group().lower()
+        start_char, end_char = match.span()
+    
+        # Is this word inside a named entity?
+        # We check if the start index is in our forbidden set
+        if start_char in forbidden_map:
+            continue # SKIP IT! It's a proper noun, not a moral word.
+        
         if word in mfd_dict:
             word_matches.append((match.span(), word, 'mfd', mfd_dict[word]))
 
@@ -195,13 +224,24 @@ def generate_heatmap(results_list, title_suffix, filename):
         return
 
     print(f"\n--- Generating Matrix for {title_suffix} ---")
+
+    # Define a custom weighted average function
+    # x is the series of shift_dist values
+    # We find the corresponding counts using the index
+    def weighted_avg(x):
+        counts = df.loc[x.index, 'count']
+        if counts.sum() == 0: 
+            return 0
+        return np.average(x, weights=counts)
     
     # Pivot
     pivot_matrix = df.pivot_table(
         index='topic_id', 
         columns='foundation', 
         values='shift_dist', 
-        aggfunc='mean'
+        # aggfunc=weighted_avg
+        # aggfunc='mean'
+        aggfunc=np.max
     )
     
     print(pivot_matrix)
@@ -227,6 +267,8 @@ start_time = time.time()
 # ------------------------------
 # Load MFD2.0 Dictonary
 # ------------------------------
+nlp = spacy.load("en_core_web_sm", disable=["parser", "lemmatizer"])
+
 mfd_dict = load_mfd_from_dic(MFD_FILE) 
 
 # ------------------------------

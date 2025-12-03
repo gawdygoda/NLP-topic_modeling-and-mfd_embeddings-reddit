@@ -73,7 +73,7 @@ def plot_top_shifting_words(file_path, target_topic, target_foundation, top_n=10
 # ------------------------------
 
 # Change these to the Topic String and Foundation you want to inspect
-MY_TOPIC = "[21, 38]"  # Use the exact string format from your ID map
-MY_FOUNDATION = "loyalty.vice" # Or "fairness.vice", "authority.virtue", etc.
+MY_TOPIC = "[15,18]"  # Use the exact string format from your ID map
+MY_FOUNDATION = "authority.virtue" # Or "fairness.vice", "authority.virtue", etc.
 
 plot_top_shifting_words(FILE_PATH, MY_TOPIC, MY_FOUNDATION, top_n=10)
