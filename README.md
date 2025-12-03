@@ -16,5 +16,12 @@ The general process is:
 4. [Context Drift Analysis](./source/context_drift_pipeline.py)
 5. [Results & Plotting](./source/results_ploting.py)
 
+---
+
+## Required Dependencies
+> pip install pymongo transformers  scikit-learn seaborn bertopic spacy
+
+> python -m spacy download en_core_web_sm
+
 
 
