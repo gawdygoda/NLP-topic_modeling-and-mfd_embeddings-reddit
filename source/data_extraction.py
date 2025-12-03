@@ -25,8 +25,8 @@ print("Total Posts:", count)
 # ------------------------------
 pipeline = [
     {"$group": {
-            "_id": None,               # we don’t care about grouping by a specific field
-            "max_num_words": {"$max": "$num_words"}  # compute max of num_words
+            "_id": None,
+            "max_num_words": {"$max": "$num_words"}
         }
     }
 ]
@@ -39,8 +39,8 @@ print("Max num_words:\n", result)
 # ------------------------------
 pipeline = [
     {"$group": {
-            "_id": None,               # we don’t care about grouping by a specific field
-            "max_num_words": {"$max": "$num_tokens"}  # compute max of num_words
+            "_id": None,
+            "max_num_words": {"$max": "$num_tokens"}
         }
     }
 ]
@@ -119,7 +119,7 @@ count = subs.count_documents(filter_criteria)
 print(f"Number of documents matching filter: {count}")
 
 projection = {
-    "_id": 0,                 # remove internal MongoDB id
+    "_id": 0,
     "title": 1,
     "author": 1,
     "selftext": 1,

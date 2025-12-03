@@ -80,8 +80,8 @@ sns.histplot(num_words, bins=60, kde=False)
 plt.axvline(512, color='red', linestyle='--', linewidth=2, label="~512-token limit")
 percentage = over_512/len(raw_data)*100
 plt.text(
-    512 + 20,                     # Slightly to the right of the line
-    plt.ylim()[1] * 0.9,          # 90% of the plot height
+    512 + 20,
+    plt.ylim()[1] * 0.9,
     f"{over_512:,}({percentage:.0f}%) posts > 512 words",
     color='red',
     fontsize=12
