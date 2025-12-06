@@ -43,7 +43,6 @@ def load_embeddings(path: str):
     return embeddings
 
 
-# From Google Overview
 def save_plotly_png(fig, png_path: str):
     fig.write_image(png_path)
     print(f"Saved figure to {png_path}")
