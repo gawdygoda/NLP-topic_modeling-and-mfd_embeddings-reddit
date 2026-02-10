@@ -23,5 +23,10 @@ The general process is:
 
 > python -m spacy download en_core_web_sm
 
+---
+[View the final report (PDF)](report_and_presentation/Topic_Modeling_and_Insights_from_AITA_Subreddit.pdf)
+
+[View the final presentation (PDF)](report_and_presentation/Posters_Fall_25__HA_PG.pdf)
+
 
 
